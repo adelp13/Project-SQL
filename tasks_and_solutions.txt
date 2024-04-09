@@ -1,0 +1,193 @@
+--EXERCITIUL 12:
+
+--Interogare 1: afisati codul beneficiarilor in ordinea punctelor de fidelitate obtinute din pachete cumparate de la sediul/sediile cu cele mai multe produse, precizandu-se si suma acestor punct
+--ordonati descrescator dupa totalul punctelor de fidelitate
+--sa se afiseze doar beneficiarii cu cel putin 4 puncte de fidelitate acumultate
+--elemente folosite: subcerere corelata in care intervin cel putin 3 tabele, 
+--grupari de date cu  subcereri  nesincronizate (subcererea necorelata pe 4 tabele din interogare se afla in clauza from a altei subcereri)  in  care  intervin  cel  putin  3  tabele, functii grup (count, sum si max), filtrare la nivel de grupuri(in cadrul aceleiasi cereri)
+
+select b.cod_beneficiar, sum(p.puncte_fidelitate) total_puncte
+from beneficiar b, achizitioneaza a, pachet_promotional p
+where a.cod_beneficiar = b.cod_beneficiar and p.cod_pachet = a.cod_pachet
+and 
+    (select  count(*) --subcerere corelata, calculeaza nr de produse din sediul curent
+    from alimenteaza a1, furnizor f, produs p1
+    where a1.cod_sediu = a.cod_sediu and a1.cod_furnizor = f.cod_furnizor and p1.cod_furnizor = f.cod_furnizor)
+    = 
+    (select max(nr_produse) from( --subcerere necorelata cu 4 tabele in clauza from a unei subcereri, calculeaza numarul de produse per sediu, si apoi maximul
+        select s.cod_sediu as cod, count(*) as nr_produse
+        from sediu s, alimenteaza a, furnizor f, produs p
+        where a.cod_sediu = s.cod_sediu and a.cod_furnizor = f.cod_furnizor and 			p.cod_furnizor = f.cod_furnizor
+        group by s.cod_sediu))
+group by b.cod_beneficiar
+having sum(p.puncte_fidelitate) >= 4 --filtrare la nivel de grupuri
+order by total_puncte desc;
+
+
+--Interogare 2: s-a stabilit cresterea perioadei de garantie pentru produsele cu cea mai scurta garantie, astfel ca produselor cu 0 garantie li se vor aduna 6 luni de garantie, celor cu 10 4 luni, celor cu 12 2 luni, iar celelate vor ramane la fel
+--sa se afiseze pentru fiecare produs (codul si numele) si numarul de premii in care e oferit in cadrul concursurilor din ultimele 100 de zile
+--afisati si garantia initiala si cea finala
+--ordonati crescator dupa valoarea noii garantii si dupa numarul de premii
+--elemente folosite: subcerere corelata cu 3 tabele, 
+-- ordonari si utilizarea functiilor NVL si DECODE (in cadrul aceleiasi cereri)
+--o functie pe data calendaristica (sysdate)
+
+select cod_produs, nume, nvl(luni_garantie, 0) as garantie_initiala, decode (nvl(luni_garantie, 0), 0, 4, 10, luni_garantie + 4, 12, 14, luni_garantie) as noua_garantie,
+(select count(*) -- subcerere corelata in clauza select, determina in cate premii recente apare produsul
+    from(select *
+    from premiu p, concurs c
+    where p.cod_concurs = c.cod_concurs and pr.cod_produs = p.cod_produs and (sysdate - c.data_concurs) <= 100 )
+) as numar_premii
+from produs pr
+order by noua_garantie, numar_premii;
+
+-- Interogare 3: sa se determine care sunt beneficiarii (nume si prenume concatenate) care isi sarbatoresc ziua primavara si care au participat la toate concursurile desfasurate in anul 2023 si care au peste 10 intrebari
+--elemente folosite:  un bloc de cerere, subcerere nesincronizata in clauza FROM, o functie pe data calendaristica (months_between)
+-- 2 functii pe siruri de caractere ( concat si substr)
+
+with concursuri_2023_peste_10_intrebari as (select cod_concurs as cod --stocheaza concursurile care respecta conditiile
+      from concurs
+      where MONTHS_BETWEEN(to_date('01-01-2024', 'dd-mm-yyyy'), data_concurs) > 0 and MONTHS_BETWEEN(to_date('01-01-2024', 'dd-mm-yyyy'), data_concurs) <= 12 and nr_intrebari > 10),
+numar_concursuri as(select count(*) nr_concursuri --calculeaza cate concursuri sunt
+                from concursuri_2023_peste_10_intrebari)
+select nume_beneficiar
+from (select b.cod_beneficiar, concat(concat(b.nume, ' '), b.prenume) as nume_beneficiar, count(*) as nr_conc --subcerere necorelata in clauza from, stocheaza la cate concursuri care respecta conditia a participat fiecare beneficiar
+    from participa p, beneficiar b, utilizator u
+    where cod_concurs in (select cod from concursuri_2023_peste_10_intrebari) and p.cod_utilizator = u.cod_utilizator and u.cod_beneficiar = b.cod_beneficiar 
+    and substr((to_char(b.CNP)), 4, 2) in ('03', '04', '05')
+    group by b.cod_beneficiar, concat(concat(b.nume, ' '), b.prenume))
+where (select nr_concursuri from numar_concursuri) = nr_conc;                 
+                                
+--Interogare 4: sediile conduse de administratori cu salariul mai mare decat salariul mediu al administratorilor vor fi reamenajate si isi vor extinde suprafata
+--pentru sediile cu suprafata mai mica sau egala cu 5000 mp, suprafata creste cu 30%, petru cele intre 5000 si 11000 creste cu 20% iar pentru cele mai mari creste cu 5%;
+--mentionati daca sediul este din bucuresti sau nu si afisati codul, numele, suprafata anterioara si cea dupa renovare
+--ordonati dupa vechea suprafata
+--elemente folosite: 2 expresii case, o functie pe sir de caractere (upper)
+
+select cod_sediu, s.nume, suprafata, 
+case when upper(s.adresa) like '%BUCURESTI%' then 'Din Bucuresti'
+else 'Nu e din bucuresti' end as locatie,
+
+case when suprafata <= 5000 then suprafata * 1.3
+when suprafata between 5001 and 11000 then suprafata * 1.2
+else suprafata * 1.05 end  as suprafata_dupa_renovare
+from administrator adm, angajat ang, sediu s
+where adm.cod_angajat = ang.cod_angajat and s.cod_angajat = adm.cod_angajat and salariu >= (select avg(salariu) --subcerere necorelata care calculeaza salariul mediu al administratorilor
+                                                                                        from angajat a1, administrator a2
+                                                                                        where a1.cod_angajat = a2.cod_angajat)
+order by suprafata; --angajatii cu salariul mai mare decat media au codurile 160, 170, 180, 190, adica fara angajatul 150
+
+--Interogare 5: afisati scenaristii (codul) a caror suma a preturilor pt produsele la care au fct reclama este mai mare decat media, precizand si media preturilor pentru fiecare scenarist
+--se va preciza si experienta acestora, mentionand daca este neexperimentat (experienta mai mica de 5), semi experimentat sau experimentat (experienta peste 7 puncte)
+--elemente folosite:  bloc de cerere, o expresie case
+
+with suma_per_scenarist as (select s.cod_angajat as angajat, sum(nvl(p.pret, 0)) as pret_total -- calculam suma preturilor per scenarist
+    		from scenarist s, reclama r, produs p
+    		where s.cod_angajat = r.cod_angajat and p.cod_produs = r.cod_produs
+   	      group by s.cod_angajat),
+medie_scenaristi as (select avg(pret_total) as medie from suma_per_scenarist) --media sumelor
+select cod_angajat, (select pret_total
+                        from suma_per_scenarist
+                        where cod_angajat = angajat) as suma_preturi, --returneaza o singura linie, suma preturilor pt scenaristul curent
+case 
+when experienta <=5 then 'neexperimentat' 
+when experienta <=8 then 'semi experimentat'
+else 'experimentat' end as experienta_castigata
+from scenarist
+where (select pret_total from suma_per_scenarist where cod_angajat = angajat) > (select medie from medie_scenaristi);
+
+
+
+--EXERCITIUL 13: 3 operatii de update
+
+--sa se mareasca cu 10% pretul produselor care apar in macar un premiu si care au pretul mai mic decat media produselor de la acelasi furnizor 
+update produs 
+set pret = pret * 1.1
+where pret < (select avg(pret)
+            from produs p
+            where cod_furnizor = p.cod_furnizor)
+and cod_produs in (select pr.cod_produs
+                    from premiu pr)
+and cod_furnizor is not null;
+
+--sa se adauge 2 intrebari (sa se creasca numarul de intrebari cu 2) la concursurile ale caror premii ( considerate o singura data) in bani valoreaza impreuna peste 100 de lei
+--tot la aceste concursuri sa se creasca taxa de inscriere cu minimul taxei de inscriere dintre toate concursurile 
+
+update concurs
+set nr_intrebari = nr_intrebari + 2, taxa_inscriere =  taxa_inscriere + (select min(cn.taxa_inscriere)
+                                                        from concurs cn) 
+where 100 < (select sum(nvl(p.suma, 0))
+            from premiu p
+            where p.cod_concurs = cod_concurs);
+            
+--sa se creasca cu 10% pretul pachetelor promotionale care contin cel putin un produs de la furnizorul cu numele 'IT DIRECT'
+update pachet_promotional
+set pret = pret * 1.1
+where cod_pachet in (select p.cod_pachet
+                    from pachet_promotional p join contine c on(p.cod_pachet = c.cod_pachet) join produs pr on(c.cod_produs = pr.cod_produs) join furnizor f on(pr.cod_furnizor = f.cod_furnizor)
+                    where f.nume = 'IT Direct'
+                    group by p.cod_pachet);
+                    
+--operatie de suprimare:
+--sa se stearga vanzarile  din anul 2019 care au avut loc in sediul/sediile cu cea mai mica suprafata
+delete from achizitioneaza
+where cod_sediu in (select s.cod_sediu 
+                    from sediu s
+                    where s.suprafata = (select min(ss.suprafata) from sediu ss) )
+and to_char(data_achizitionare, 'YYYY') = '2019';
+
+
+--EXERCITIUL 15:
+
+--Analiza TOP n:
+--sa se afiseze primii 3 utilizatori (cod utilizator) in ordinea sumei castigate din premii in bani in cadrul concursurilor la care au participat
+--sa se precizeze si suma castigata pentru fiecare utilizator 
+--mentiune: un concurent castiga premiul din cadrul concursului cu punctajul minim necesar cel mai apropiat de punctajul obtinut de concurent, dar nu mai mare 
+
+select *
+from(select subcerere.*, rownum indice
+    from
+    (
+        select ut as cod_user, sum(nvl(bani_premiu, 0)) as total_bani from
+            (select u.cod_utilizator as ut, pr.cod_premiu, c.cod_concurs, pr.suma as bani_premiu
+            from utilizator u join participa p on(u.cod_utilizator = p.cod_utilizator) join concurs c on(p.cod_concurs = c.cod_concurs) join premiu pr on(c.cod_concurs = pr.cod_concurs)
+            where p.punctaj > pr.punctaj_minim
+            and p.punctaj - pr.punctaj_minim = (select min(p.punctaj - pp.punctaj_minim)
+                                                    from concurs cc join premiu pp on(cc.cod_concurs = pp.cod_concurs)
+                                                    where cc.cod_concurs = c.cod_concurs and p.punctaj > pp.punctaj_minim)) 
+         group by ut
+         order by total_bani desc
+            
+    ) subcerere
+)
+where indice <=3;
+
+--OPERATIA DIVISION, METODA CU 2 NOT EXISTS:
+--sa se afiseze codurile si numele furnizorilor care alimenteaza toate sediile din bucuresti
+--sa se afiseze si numarul de produse furnizate de fiecare dintre acesti furnizori si sa se ordoneze descrescator dupa acest numar
+
+select f.cod_furnizor as cod, f.nume as nume_furnizor, count(*) as numar_produse_furnizate
+from alimenteaza a join furnizor f on (a.cod_furnizor = f.cod_furnizor) join produs p on(f.cod_furnizor = p.cod_furnizor)
+where not exists
+    (select 'a'
+    from sediu s
+    where adresa like '%Bucuresti%'
+    and not exists 
+        (select 'b'
+        from alimenteaza a1
+        where  a.cod_furnizor = a1.cod_furnizor and s.cod_sediu = a1.cod_sediu
+    ))
+group by f.cod_furnizor, f.nume
+order by numar_produse_furnizate desc;
+
+--OUTER JOIN PE 4 TABELE:
+--afisati pentru fiecare beneficiar codul, numele si prenumele concatenate, numele de utilizator si data celui mai recent concurs la care a participat
+--se va ordona dupa aceasta data
+--daca nu a participat la niciun concurs se va afisa "nu a participat la concursuri" in dreptul coloanei aferente datei 
+--daca beneficiarul nu are nici utilizator (si implicit nu a participat nici la concursuri), se va specifica "nu are cont de utilizator" in locul numelui de utilizator
+
+select b.cod_beneficiar, concat(concat(b.nume, ' '), b.prenume) as nume, nvl(u.nume_utilizator, 'nu are cont de utiliator')as date_utilizator, nvl(to_char(max(c.data_concurs), 'dd-mm-yyyy'), 'nu a participat la concursuri') as cea_mai_recenta_data
+from beneficiar b, utilizator u, participa p, concurs c
+where b.cod_beneficiar = u.cod_beneficiar(+)  and u.cod_utilizator = p.cod_utilizator(+) and p.cod_concurs = c.cod_concurs(+)
+group by b.cod_beneficiar, concat(concat(b.nume, ' '), b.prenume), nvl(u.nume_utilizator, 'nu are cont de utiliator')
+order by cea_mai_recenta_data;

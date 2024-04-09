@@ -1,0 +1,486 @@
+--creare tabele:
+create table FURNIZOR (
+cod_furnizor int constraint cod_furnizor_pk primary key,
+nume varchar2(40) constraint nume_furnizor_nn NOT NULL,
+adresa_mail_repr varchar2(40),
+constraint nume_furnizor_uq unique(nume)
+);
+
+create table CONCURS (
+cod_concurs int constraint cod_concurs_pk primary key,
+data_concurs date default sysdate constraint data_concurs_nn NOT NULL,
+subiect varchar2(50) constraint subiect_nn NOT NULL,
+durata number(2) constraint durata_concurs NOT NULL,
+nr_intrebari number(2) default 20 constraint nr_intrebari_nn NOT NULL,
+taxa_inscriere number(2) constraint taxa_inscriere_nn NOT NULL,
+constraint durata_concurs_ck check(durata <= 20),
+constraint subiect_uq unique(subiect)
+);
+
+create table BENEFICIAR (
+cod_beneficiar int,
+nume varchar2(25) constraint nume_beneficiar_nn NOT NULL,
+prenume varchar2(25) constraint prenume_beneficiar_nn NOT NULL,
+telefon varchar2(13), 
+CNP number(13) constraint cnp_beneficiar_nn NOT NULL constraint cnp_beneficiar_uq unique,
+constraint cod_beneficiar_pk primary key(cod_beneficiar)
+);
+
+
+create table PACHET_PROMOTIONAL (
+cod_pachet int,
+pret number(10, 2) constraint pret_pachet_nn NOT NULL,
+puncte_fidelitate number(2),
+constraint puncte_fidelitate_ck check(puncte_fidelitate <= 30),
+constraint cod_pachet_pk primary key(cod_pachet)
+);
+
+create table PRODUS (
+cod_produs int,
+cod_furnizor int constraint produs_furnizor_nn NOT NULL,
+nume varchar2(40) constraint nume_produs_nn NOT NULL,
+luni_garantie number(2) default 12,
+pret number(10, 2) constraint pret_produs_nn NOT NULL,
+constraint cod_produs_pk primary key(cod_produs),
+constraint nume_produs_uq unique(nume),
+constraint include_furnizor_fk foreign key(cod_furnizor) references FURNIZOR(cod_furnizor)
+);
+
+create table CONTINE (
+cod_produs int,
+cod_pachet int,
+constraint contine_pk primary key(cod_produs, cod_pachet),
+constraint contine_produs_fk foreign key(cod_produs) references PRODUS(cod_produs),
+constraint contine_pachet_fk foreign key(cod_pachet) references PACHET_PROMOTIONAL(cod_pachet)
+);
+
+create table UTILIZATOR (
+cod_utilizator int,
+cod_beneficiar int constraint cod_beneficiar_nn NOT NULL, 
+nume_utilizator varchar2(50) constraint nume_utilizator_nn NOT NULL,
+parola varchar2(50) constraint parola_nn NOT NULL,
+data_autentificare date default sysdate constraint  data_autentificare_nn NOT NULL,
+constraint nume_utilizator_uq unique(nume_utilizator),
+constraint cod_utilizator_pk primary key(cod_utilizator),
+constraint cod_beneficiar_uq unique(cod_beneficiar),
+constraint cod_beneficiar_fk foreign key(cod_beneficiar) references BENEFICIAR(cod_beneficiar)
+);
+
+create table PARTICIPA (
+cod_concurs int,
+cod_utilizator int,
+punctaj number(3) constraint punctaj_nn NOT NULL,
+constraint participa_pk primary key(cod_concurs, cod_utilizator),
+constraint participa_concurs_fk foreign key(cod_concurs) references CONCURS(cod_concurs),
+constraint participa_utilizator_fk foreign key(cod_utilizator) references UTILIZATOR(cod_utilizator)
+);
+
+
+create table PREMIU (
+cod_premiu int,
+cod_concurs int constraint premiu_concurs_nn NOT NULL,
+cod_produs int,
+punctaj_minim number(3) constraint punctaj_minim_nn NOT NULL,
+suma number(3) default 0,
+constraint premiu_pk primary key(cod_premiu, cod_concurs),
+constraint premiu_concurs_fk foreign key(cod_concurs) references CONCURS(cod_concurs),
+constraint premiu_produs_fk foreign key(cod_produs) references PRODUS(cod_produs)
+);
+
+create table ANGAJAT (
+	cod_angajat int,
+	nume varchar2(25) constraint nume_angajat_nn NOT NULL,
+	prenume varchar2(25) constraint prenume_angajat_nn NOT NULL,
+	salariu number(7) default 3500,
+	telefon varchar2(15),
+	constraint cod_angajat_pk primary key(cod_angajat)
+);
+
+create table SCENARIST (
+	cod_angajat int constraint cod_scenarist_pk primary key references ANGAJAT(cod_angajat),
+	zi_libera varchar2(10),
+    experienta number(2)
+);
+
+create table ADMINISTRATOR (
+	cod_angajat int constraint cod_administrator_pk primary key references ANGAJAT(cod_angajat),
+	data_angajare date default sysdate constraint data_angajare_nn NOT NULL
+);
+create table RECLAMA (
+cod_reclama int constraint cod_reclama_pk primary key,
+cod_produs int,
+cod_angajat int constraint cod_angajat_nn NOT NULL,
+durata number(3) constraint durata_reclama_nn NOT NULL,
+cost_total number(7) constraint cost_total_nn NOT NULL,
+constraint reclama_produs_fk foreign key(cod_produs) references PRODUS(cod_produs),
+constraint reclama_scenarist_fk foreign key(cod_angajat) references SCENARIST(cod_angajat)
+);
+
+create table SEDIU (
+cod_sediu int constraint cod_sediu_pk primary key,
+cod_angajat int constraint sediu_angajat_nn NOT NULL,
+nume varchar2(30) constraint nume_sediu_nn NOT NULL,
+adresa varchar2(60) constraint adresa_sediu_nn NOT NULL,
+suprafata number(10) default 100000 constraint suprafata_sediu_nn NOT NULL,
+adresa_mail varchar2(40),
+constraint nume_sediu_uq unique(nume),
+constraint sediu_administrator_fk foreign key(cod_angajat) references ADMINISTRATOR(cod_angajat)
+);
+create table ACHIZITIONEAZA (
+cod_beneficiar int,
+cod_pachet int,
+cod_sediu int,
+data_achizitionare date default sysdate,
+constraint achizitioneaza_pk primary key(cod_beneficiar, cod_pachet, cod_sediu),
+constraint achizitioneaza_pachet__fk foreign key(cod_pachet) references PACHET_PROMOTIONAL(cod_pachet),
+constraint achizitioneaza_beneficiar__fk foreign key(cod_beneficiar) references BENEFICIAR(cod_beneficiar),
+constraint achizitioneaza_sediu__fk foreign key(cod_sediu) references SEDIU(cod_sediu)
+);
+create table ALIMENTEAZA (
+cod_furnizor int, 
+cod_sediu int,
+constraint alimenteaza_pk primary key(cod_furnizor, cod_sediu),
+constraint alimenteaza_sediu__fk foreign key(cod_sediu) references SEDIU(cod_sediu),
+constraint alimenteaza_furnizor_fk foreign key(cod_furnizor) references FURNIZOR(cod_furnizor)
+);
+
+
+
+--INSERARE TABELE:
+
+create  sequence seq_furnizor
+start with 100
+increment by 10
+maxvalue 1000
+nocycle
+nocache;
+
+insert into furnizor (cod_furnizor, nume, adresa_mail_repr)values(seq_furnizor.nextval, 'Electronice high quality', 'popescu.ioan@gmail.com');
+insert into furnizor (cod_furnizor, nume, adresa_mail_repr)values(seq_furnizor.nextval, 'Elecrtic party', 'ionescu.maria@yahoo.com');
+insert into furnizor (cod_furnizor, nume, adresa_mail_repr)values(seq_furnizor.nextval, 'Electronics++', 'marinescu.mirela@gmail.com');
+insert into furnizor (cod_furnizor, nume, adresa_mail_repr)values(seq_furnizor.nextval, 'IT Direct', 'paul.enescu45@gmail.com');
+insert into furnizor (cod_furnizor, nume, adresa_mail_repr)values(seq_furnizor.nextval, 'Ultra circuite', NULL);
+select * from furnizor;
+
+create  sequence seq_concurs
+start with 100
+increment by 10
+maxvalue 1000
+nocycle
+nocache;
+
+insert into concurs (cod_concurs, data_concurs, subiect, durata, nr_intrebari, taxa_inscriere)values(seq_concurs.nextval, to_date('12-04-2023', 'dd-mm-yyyy'), 'Biologie', 10, 15, 20);
+insert into concurs (cod_concurs, data_concurs, subiect, durata, nr_intrebari, taxa_inscriere)values(seq_concurs.nextval, to_date('18-04-2023', 'dd-mm-yyyy'), 'Matematica', 20, 20, 30);
+insert into concurs (cod_concurs, data_concurs, subiect, durata, nr_intrebari, taxa_inscriere)values(seq_concurs.nextval, to_date('27-02-2023', 'dd-mm-yyyy'), 'Literatura', 10, 16, 10);
+insert into concurs (cod_concurs, data_concurs, subiect, durata, nr_intrebari, taxa_inscriere)values(seq_concurs.nextval, to_date('14-11-2022', 'dd-mm-yyyy'), 'Diverse', 7, 8, 10);
+insert into concurs (cod_concurs, data_concurs, subiect, durata, nr_intrebari, taxa_inscriere)values(seq_concurs.nextval, to_date('15-01-2023', 'dd-mm-yyyy'), 'Vulcani', 13, 15, 25);
+select * from concurs;
+
+
+create  sequence seq_beneficiar
+start with 100
+increment by 10
+maxvalue 1000
+nocycle
+nocache;
+
+insert into beneficiar (cod_beneficiar, nume, prenume, telefon, CNP)values(seq_beneficiar.nextval, 'Andronic', 'Marcel', '+400733456753', 5001210208170);
+insert into beneficiar (cod_beneficiar, nume, prenume, telefon, CNP)values(seq_beneficiar.nextval, 'Suditu', 'Mara', '+400745839485', 2990310209242);
+insert into beneficiar (cod_beneficiar, nume, prenume, telefon, CNP)values(seq_beneficiar.nextval, 'Antonescu', 'David', '+400748201839', 5010410205807);
+insert into beneficiar (cod_beneficiar, nume, prenume, telefon, CNP)values(seq_beneficiar.nextval, 'Lupu', 'Eugen', '+400745678542', 1990915204669);
+insert into beneficiar (cod_beneficiar, nume, prenume, telefon, CNP)values(seq_beneficiar.nextval, 'Alexandru', 'Miruna', '+400706543678', 6001130203816);
+insert into beneficiar (cod_beneficiar, nume, prenume, telefon, CNP)values(seq_beneficiar.nextval, 'Munteanu', 'Ana', '+400733456784', 6010413100131);
+select * from beneficiar;
+
+create  sequence seq_produs
+start with 100
+increment by 1
+maxvalue 1000
+nocycle
+nocache;
+
+insert into produs (cod_produs, cod_furnizor, nume, luni_garantie, pret)values(seq_produs.nextval, 100, 'Casti Wireless', 12, 50);
+insert into produs (cod_produs, cod_furnizor, nume, luni_garantie, pret)values(seq_produs.nextval, 100, 'Bec ultra', 24, 20);
+insert into produs (cod_produs, cod_furnizor, nume, luni_garantie, pret)values(seq_produs.nextval, 100, 'Incarcator telefon', 16, 40);
+insert into produs (cod_produs, cod_furnizor, nume, luni_garantie, pret)values(seq_produs.nextval, 110, 'Lanterna', 36, 50);
+insert into produs (cod_produs, cod_furnizor, nume, luni_garantie, pret)values(seq_produs.nextval, 110, 'Incarcator tableta', NULL, 10);
+insert into produs (cod_produs, cod_furnizor, nume, luni_garantie, pret)values(seq_produs.nextval, 120, 'Aspirator robot', 10, 300);
+insert into produs (cod_produs, cod_furnizor, nume, luni_garantie, pret)values(seq_produs.nextval, 120, 'Fier de calcat', 12, 120);
+insert into produs (cod_produs, cod_furnizor, nume, luni_garantie, pret)values(seq_produs.nextval, 130, 'Uscator de par', 12, 90);
+insert into produs (cod_produs, cod_furnizor, nume, luni_garantie, pret)values(seq_produs.nextval, 130, 'Uscator de par Pro', 12, 190);
+insert into produs (cod_produs, cod_furnizor, nume, luni_garantie, pret)values(seq_produs.nextval, 140, 'Telefon', 14, 3000);
+insert into produs (cod_produs, cod_furnizor, nume, luni_garantie, pret)values(seq_produs.nextval, 140, 'Laptop', 14, 6000);
+insert into produs (cod_produs, cod_furnizor, nume, luni_garantie, pret)values(seq_produs.nextval, 140, 'Tableta', 15, 1000);
+select * from produs;
+
+
+create  sequence seq_pachet
+start with 100
+increment by 10
+maxvalue 1000
+nocycle
+nocache;
+
+insert into pachet_promotional (cod_pachet, pret, puncte_fidelitate)values(seq_pachet.nextval, 70, 10);
+insert into pachet_promotional (cod_pachet, pret, puncte_fidelitate)values(seq_pachet.nextval, 80, 12);
+insert into pachet_promotional (cod_pachet, pret, puncte_fidelitate)values(seq_pachet.nextval, 6000, 30);
+insert into pachet_promotional (cod_pachet, pret, puncte_fidelitate)values(seq_pachet.nextval, 420, 20);
+insert into pachet_promotional (cod_pachet, pret, puncte_fidelitate)values(seq_pachet.nextval, 50, 3);
+select* from pachet_promotional;
+
+insert into contine (cod_produs, cod_pachet) values(100, 100);
+insert into contine (cod_produs, cod_pachet) values(103, 100);
+insert into contine (cod_produs, cod_pachet) values(104, 100);
+insert into contine (cod_produs, cod_pachet) values(101, 110);
+insert into contine (cod_produs, cod_pachet) values(107, 110);
+insert into contine (cod_produs, cod_pachet) values(109, 120);
+insert into contine (cod_produs, cod_pachet) values(110, 120);
+insert into contine (cod_produs, cod_pachet) values(105, 120);
+insert into contine (cod_produs, cod_pachet) values(105, 130);
+insert into contine (cod_produs, cod_pachet) values(107, 130);
+insert into contine (cod_produs, cod_pachet) values(103, 130);
+insert into contine (cod_produs, cod_pachet) values(106, 130);
+insert into contine (cod_produs, cod_pachet) values(111, 140);
+insert into contine (cod_produs, cod_pachet) values(104, 140);
+select * from contine;
+
+
+create  sequence seq_utilizator
+start with 100
+increment by 10
+maxvalue 1000
+nocycle
+nocache;
+
+insert into utilizator (cod_utilizator, cod_beneficiar, nume_utilizator, parola, data_autentificare)values(seq_utilizator.nextval, 100, 'marcel233', 'f123ds', to_date('12-05-2022', 'dd-mm-yyyy'));
+insert into utilizator (cod_utilizator, cod_beneficiar, nume_utilizator, parola, data_autentificare)values(seq_utilizator.nextval, 110, 'marra4', '35323d', to_date('25-04-2022', 'dd-mm-yyyy'));
+insert into utilizator (cod_utilizator, cod_beneficiar, nume_utilizator, parola, data_autentificare)values(seq_utilizator.nextval, 120, 'dvd34_a', 'parola', to_date('30-05-2022', 'dd-mm-yyyy'));
+insert into utilizator (cod_utilizator, cod_beneficiar, nume_utilizator, parola, data_autentificare)values(seq_utilizator.nextval, 130, 'mira__12', 'prdfgd', to_date('12-04-2022', 'dd-mm-yyyy'));
+insert into utilizator (cod_utilizator, cod_beneficiar, nume_utilizator, parola, data_autentificare)values(seq_utilizator.nextval, 150, 'mnt_ana', '567fg', to_date('02-05-2022', 'dd-mm-yyyy'));
+select* from utilizator;
+
+create  sequence seq_premiu
+start with 100
+increment by 10
+maxvalue 1000
+nocycle
+nocache;
+
+insert into premiu (cod_premiu, cod_concurs, cod_produs, punctaj_minim, suma)values(seq_premiu.nextval, 100, 103, 60, 20);
+insert into premiu (cod_premiu, cod_concurs, cod_produs, punctaj_minim, suma)values(seq_premiu.nextval, 100, 100, 70, 30);
+insert into premiu (cod_premiu, cod_concurs, cod_produs, punctaj_minim, suma)values(seq_premiu.nextval, 100, 108, 90, 40);
+insert into premiu (cod_premiu, cod_concurs, cod_produs, punctaj_minim, suma)values(seq_premiu.nextval, 110, 106, 80, 30);
+insert into premiu (cod_premiu, cod_concurs, cod_produs, punctaj_minim, suma)values(seq_premiu.nextval, 110, 103, 90, 35);
+insert into premiu (cod_premiu, cod_concurs, cod_produs, punctaj_minim, suma)values(seq_premiu.nextval, 120, NULL, 70, 210);
+insert into premiu (cod_premiu, cod_concurs, cod_produs, punctaj_minim, suma)values(seq_premiu.nextval, 120, 102, 75, 20);
+insert into premiu (cod_premiu, cod_concurs, cod_produs, punctaj_minim, suma)values(seq_premiu.nextval, 130, 101, 80, NULL);
+insert into premiu (cod_premiu, cod_concurs, cod_produs, punctaj_minim, suma)values(seq_premiu.nextval, 130, 105, 99, 30);
+insert into premiu (cod_premiu, cod_concurs, cod_produs, punctaj_minim, suma)values(seq_premiu.nextval, 140, 111, 100, 0);
+insert into premiu (cod_premiu, cod_concurs, cod_produs, punctaj_minim, suma)values(seq_premiu.nextval, 140, 104, 50, 10);
+select* from premiu;
+
+insert into participa (cod_concurs, cod_utilizator, punctaj) values (100, 110, 50);
+insert into participa (cod_concurs, cod_utilizator, punctaj) values (100, 100, 66);
+insert into participa (cod_concurs, cod_utilizator, punctaj) values (100, 130, 74);
+insert into participa (cod_concurs, cod_utilizator, punctaj) values (100, 140, 95);
+
+insert into participa (cod_concurs, cod_utilizator, punctaj) values (110, 100, 92);
+insert into participa (cod_concurs, cod_utilizator, punctaj) values (110, 110, 94);
+insert into participa (cod_concurs, cod_utilizator, punctaj) values (110, 130, 88);
+insert into participa (cod_concurs, cod_utilizator, punctaj) values (110, 140, 50);
+
+insert into participa (cod_concurs, cod_utilizator, punctaj) values (120, 100, 97);
+insert into participa (cod_concurs, cod_utilizator, punctaj) values (120, 110, 73);
+insert into participa (cod_concurs, cod_utilizator, punctaj) values (120, 140, 60);
+
+insert into participa (cod_concurs, cod_utilizator, punctaj) values (130, 100, 99);
+insert into participa (cod_concurs, cod_utilizator, punctaj) values (130, 110, 90);
+insert into participa (cod_concurs, cod_utilizator, punctaj) values (130, 130, 79);
+insert into participa (cod_concurs, cod_utilizator, punctaj) values (130, 140, 73);
+
+insert into participa (cod_concurs, cod_utilizator, punctaj) values (140, 100, 99);
+insert into participa (cod_concurs, cod_utilizator, punctaj) values (140, 110, 45);
+insert into participa (cod_concurs, cod_utilizator, punctaj) values (140, 130, 74);
+insert into participa (cod_concurs, cod_utilizator, punctaj) values (140, 140, 100);
+select* from participa;
+
+
+
+create  sequence seq_angajat
+start with 100
+increment by 10
+maxvalue 1000
+nocycle
+nocache;
+
+insert into angajat (cod_angajat, nume, prenume, salariu, telefon) values (seq_angajat.nextval, 'Lopataru', 'Alexandra', 3500, '+400758465748');
+insert into angajat (cod_angajat, nume, prenume, salariu, telefon) values (seq_angajat.nextval, 'Cujbescu', 'Marius', 3600, '+400745678954');
+insert into angajat (cod_angajat, nume, prenume, salariu, telefon) values (seq_angajat.nextval, 'Serban', 'Alina', 3700, '+400767584957');
+insert into angajat (cod_angajat, nume, prenume, salariu, telefon) values (seq_angajat.nextval, 'Mihai', 'Costin', 3650, '+400778965435');
+insert into angajat (cod_angajat, nume, prenume, salariu, telefon) values (seq_angajat.nextval, 'Lazar', 'Simon', 3700, '+400789657453');
+insert into angajat (cod_angajat, nume, prenume, salariu, telefon) values (seq_angajat.nextval, 'Moldovan', 'Andreea', 5000, '+400709876547');
+insert into angajat (cod_angajat, nume, prenume, salariu, telefon) values (seq_angajat.nextval, 'Oprea', 'Pavel', 5500, '+400798765467');
+insert into angajat (cod_angajat, nume, prenume, salariu, telefon) values (seq_angajat.nextval, 'Dumitrescu', 'Bianca', 5600, '+400785768594');
+insert into angajat (cod_angajat, nume, prenume, salariu, telefon) values (seq_angajat.nextval, 'Dinu', 'Dobrin', 5400, '+400734567895');
+insert into angajat (cod_angajat, nume, prenume, salariu, telefon) values (seq_angajat.nextval, 'Cristea', 'Cristina', 5400, NULL);
+insert into angajat (cod_angajat, nume, prenume, salariu, telefon) values (seq_angajat.nextval, 'Todorescu', 'Simon', 6000, '+400734567845');
+insert into angajat (cod_angajat, nume, prenume, salariu, telefon) values (seq_angajat.nextval, 'Anontescu', 'Briana', 7000, '+400787657893');
+select* from angajat;
+
+insert into scenarist (cod_angajat, zi_libera, experienta) values (100, 'miercuri', 6);
+insert into scenarist (cod_angajat, zi_libera, experienta) values (110, 'luni', 8);
+insert into scenarist (cod_angajat, zi_libera, experienta) values (120, 'luni', 10);
+insert into scenarist (cod_angajat, zi_libera, experienta) values (130, 'joi', 7);
+insert into scenarist (cod_angajat, zi_libera, experienta) values (140, 'vineri', 6);
+select * from scenarist;
+
+insert into administrator (cod_angajat, data_angajare) values (150, to_date('15-08-2021', 'dd-mm-yyyy'));
+insert into administrator (cod_angajat, data_angajare) values (160, to_date('12-09-2021', 'dd-mm-yyyy'));
+insert into administrator (cod_angajat, data_angajare) values (170, to_date('19-08-2022', 'dd-mm-yyyy'));
+insert into administrator (cod_angajat, data_angajare) values (180, to_date('02-11-2022', 'dd-mm-yyyy'));
+insert into administrator (cod_angajat, data_angajare) values (190, to_date('16-05-2023', 'dd-mm-yyyy'));
+select* from administrator;
+
+
+
+create  sequence seq_reclama
+start with 100
+increment by 10
+maxvalue 1000
+nocycle
+nocache;
+
+insert into reclama (cod_reclama, cod_produs, cod_angajat, durata, cost_total) values (seq_reclama.nextval, 100, 140, 30, 2150);
+insert into reclama (cod_reclama, cod_produs, cod_angajat, durata, cost_total) values (seq_reclama.nextval, 100, 130, 40, 2250);
+insert into reclama (cod_reclama, cod_produs, cod_angajat, durata, cost_total) values (seq_reclama.nextval, NULL, 130, 40, 1400);
+insert into reclama (cod_reclama, cod_produs, cod_angajat, durata, cost_total) values (seq_reclama.nextval, 101, 110, 50, 1400);
+insert into reclama (cod_reclama, cod_produs, cod_angajat, durata, cost_total) values (seq_reclama.nextval, 101, 130, 60, 2250);
+insert into reclama (cod_reclama, cod_produs, cod_angajat, durata, cost_total) values (seq_reclama.nextval, 101, 140, 10, 3000);
+insert into reclama (cod_reclama, cod_produs, cod_angajat, durata, cost_total) values (seq_reclama.nextval, 102, 110, 20, 3000);
+insert into reclama (cod_reclama, cod_produs, cod_angajat, durata, cost_total) values (seq_reclama.nextval, 102, 140, 30, 2250);
+insert into reclama (cod_reclama, cod_produs, cod_angajat, durata, cost_total) values (seq_reclama.nextval, 102, 130, 35, 2250);
+insert into reclama (cod_reclama, cod_produs, cod_angajat, durata, cost_total) values (seq_reclama.nextval, 103, 120, 35, 1220);
+insert into reclama (cod_reclama, cod_produs, cod_angajat, durata, cost_total) values (seq_reclama.nextval, 103, 110, 35, 1400);
+insert into reclama (cod_reclama, cod_produs, cod_angajat, durata, cost_total) values (seq_reclama.nextval, 105, 120, 30, 1220);
+insert into reclama (cod_reclama, cod_produs, cod_angajat, durata, cost_total) values (seq_reclama.nextval, 105, 140, 45, 1400);
+insert into reclama (cod_reclama, cod_produs, cod_angajat, durata, cost_total) values (seq_reclama.nextval, 106, 130, 24, 1220);
+insert into reclama (cod_reclama, cod_produs, cod_angajat, durata, cost_total) values (seq_reclama.nextval, 106, 120, 45, 3000);
+insert into reclama (cod_reclama, cod_produs, cod_angajat, durata, cost_total) values (seq_reclama.nextval, 107, 110, 30, 1220);
+insert into reclama (cod_reclama, cod_produs, cod_angajat, durata, cost_total) values (seq_reclama.nextval, 109, 140, 30, 500);
+insert into reclama (cod_reclama, cod_produs, cod_angajat, durata, cost_total) values (seq_reclama.nextval, 110, 130, 45, 4000);
+insert into reclama (cod_reclama, cod_produs, cod_angajat, durata, cost_total) values (seq_reclama.nextval, 111, 110, 55, 5000);
+insert into reclama (cod_reclama, cod_produs, cod_angajat, durata, cost_total) values (seq_reclama.nextval, 110, 120, 30, 4030);
+insert into reclama (cod_reclama, cod_produs, cod_angajat, durata, cost_total) values (seq_reclama.nextval, NULL, 120, 42, 2000);
+insert into reclama (cod_reclama, cod_produs, cod_angajat, durata, cost_total) values (seq_reclama.nextval, 108, 130, 25, 600);
+select * from reclama;
+
+create  sequence seq_sediu
+start with 100
+increment by 10
+maxvalue 1000
+nocycle
+nocache;
+
+insert into sediu (cod_sediu, cod_angajat, nume, adresa, suprafata, adresa_mail) values (seq_sediu.nextval, 150, 'Electric center', 'Bucuresti Sud', 10000, 'electric.center@gmail.com');
+insert into sediu (cod_sediu, cod_angajat, nume, adresa, suprafata, adresa_mail) values (seq_sediu.nextval, 160, 'Cable power', 'Centru Bucuresti City', 12000, 'cable.power234@yahoo.ro"');
+insert into sediu (cod_sediu, cod_angajat, nume, adresa, suprafata, adresa_mail) values (seq_sediu.nextval, 170, 'Atacul tehnologiei', 'Ploiesti Periferie', 5000, 'technology.attack578@yahoo.com');
+insert into sediu (cod_sediu, cod_angajat, nume, adresa, suprafata, adresa_mail) values (seq_sediu.nextval, 170, 'IT Party', 'Buzau Cartier Dorobanti', 6000, 'partyit45@gmail.ro');
+insert into sediu (cod_sediu, cod_angajat, nume, adresa, suprafata, adresa_mail) values (seq_sediu.nextval, 190, 'ELECTRO LIGHT MAIN', 'Bucuresti Strada Pacii', 12000, 'electrowizBucharest@gmail.com');
+select* from sediu;
+
+
+insert into alimenteaza (cod_furnizor, cod_sediu) values(100, 110);
+insert into alimenteaza (cod_furnizor, cod_sediu) values(100, 120);
+insert into alimenteaza (cod_furnizor, cod_sediu) values(100, 130);
+
+insert into alimenteaza (cod_furnizor, cod_sediu) values(110, 100);
+insert into alimenteaza (cod_furnizor, cod_sediu) values(110, 110);
+insert into alimenteaza (cod_furnizor, cod_sediu) values(110, 120);
+insert into alimenteaza (cod_furnizor, cod_sediu) values(110, 140);
+
+insert into alimenteaza (cod_furnizor, cod_sediu) values(120, 110);
+insert into alimenteaza (cod_furnizor, cod_sediu) values(120, 120);
+insert into alimenteaza (cod_furnizor, cod_sediu) values(120, 140);
+
+insert into alimenteaza (cod_furnizor, cod_sediu) values(130, 120);
+insert into alimenteaza (cod_furnizor, cod_sediu) values(130, 130);
+insert into alimenteaza (cod_furnizor, cod_sediu) values(130, 140);
+
+insert into alimenteaza (cod_furnizor, cod_sediu) values(140, 100);
+insert into alimenteaza (cod_furnizor, cod_sediu) values(140, 110);
+insert into alimenteaza (cod_furnizor, cod_sediu) values(140, 140);
+select* from alimenteaza;
+
+
+
+
+insert into achizitioneaza (cod_beneficiar, cod_pachet, cod_sediu,data_achizitionare) values (100, 100, 110, to_date('16-09-2022', 'dd-mm-yyyy'));
+insert into achizitioneaza (cod_beneficiar, cod_pachet, cod_sediu,data_achizitionare) values (100, 100, 120, to_date('17-08-2022', 'dd-mm-yyyy'));
+insert into achizitioneaza (cod_beneficiar, cod_pachet, cod_sediu,data_achizitionare) values (100, 130, 120, to_date('15-10-2021', 'dd-mm-yyyy'));
+insert into achizitioneaza (cod_beneficiar, cod_pachet, cod_sediu,data_achizitionare) values (100, 140, 100, to_date('14-11-2021', 'dd-mm-yyyy'));
+insert into achizitioneaza (cod_beneficiar, cod_pachet, cod_sediu,data_achizitionare) values (100, 120, 140, to_date('12-12-2022', 'dd-mm-yyyy'));
+
+insert into achizitioneaza (cod_beneficiar, cod_pachet, cod_sediu,data_achizitionare) values (110, 100, 120, to_date('13-08-2021', 'dd-mm-yyyy'));
+insert into achizitioneaza (cod_beneficiar, cod_pachet, cod_sediu,data_achizitionare) values (110, 110, 120, to_date('16-07-2022', 'dd-mm-yyyy'));
+insert into achizitioneaza (cod_beneficiar, cod_pachet, cod_sediu,data_achizitionare) values (110, 110, 130, to_date('17-05-2022', 'dd-mm-yyyy'));
+insert into achizitioneaza (cod_beneficiar, cod_pachet, cod_sediu,data_achizitionare) values (110, 120, 140, to_date('18-03-2021', 'dd-mm-yyyy'));
+insert into achizitioneaza (cod_beneficiar, cod_pachet, cod_sediu,data_achizitionare) values (110, 130, 120, to_date('19-02-2020', 'dd-mm-yyyy'));
+insert into achizitioneaza (cod_beneficiar, cod_pachet, cod_sediu,data_achizitionare) values (110, 140, 110, to_date('20-01-2020', 'dd-mm-yyyy'));
+
+insert into achizitioneaza (cod_beneficiar, cod_pachet, cod_sediu,data_achizitionare) values (120, 110, 120, to_date('21-11-2021', 'dd-mm-yyyy'));
+insert into achizitioneaza (cod_beneficiar, cod_pachet, cod_sediu,data_achizitionare) values (120, 120, 140, to_date('22-12-2020', 'dd-mm-yyyy'));
+insert into achizitioneaza (cod_beneficiar, cod_pachet, cod_sediu,data_achizitionare) values (120, 140, 100, to_date('23-04-2022', 'dd-mm-yyyy'));
+insert into achizitioneaza (cod_beneficiar, cod_pachet, cod_sediu,data_achizitionare) values (120, 130, 120, to_date('24-04-2020', 'dd-mm-yyyy'));
+insert into achizitioneaza (cod_beneficiar, cod_pachet, cod_sediu,data_achizitionare) values (120, 100, 110, to_date('25-06-2021', 'dd-mm-yyyy'));
+
+insert into achizitioneaza (cod_beneficiar, cod_pachet, cod_sediu,data_achizitionare) values (130, 100, 120, to_date('26-06-2020', 'dd-mm-yyyy'));
+insert into achizitioneaza (cod_beneficiar, cod_pachet, cod_sediu,data_achizitionare) values (130, 120, 140, to_date('27-07-2022', 'dd-mm-yyyy'));
+insert into achizitioneaza (cod_beneficiar, cod_pachet, cod_sediu,data_achizitionare) values (130, 110, 130, to_date('28-09-2021', 'dd-mm-yyyy'));
+insert into achizitioneaza (cod_beneficiar, cod_pachet, cod_sediu,data_achizitionare) values (130, 140, 110, to_date('29-08-2020', 'dd-mm-yyyy'));
+insert into achizitioneaza (cod_beneficiar, cod_pachet, cod_sediu,data_achizitionare) values (130, 110, 120, to_date('30-10-2019', 'dd-mm-yyyy'));
+
+insert into achizitioneaza (cod_beneficiar, cod_pachet, cod_sediu,data_achizitionare) values (140, 110, 120, to_date('25-03-2021', 'dd-mm-yyyy'));
+insert into achizitioneaza (cod_beneficiar, cod_pachet, cod_sediu,data_achizitionare) values (140, 130, 120, to_date('01-03-2019', 'dd-mm-yyyy'));
+insert into achizitioneaza (cod_beneficiar, cod_pachet, cod_sediu,data_achizitionare) values (140, 120, 140, to_date('02-09-2021', 'dd-mm-yyyy'));
+
+insert into achizitioneaza (cod_beneficiar, cod_pachet, cod_sediu,data_achizitionare) values (150, 100, 110, to_date('02-06-2018', 'dd-mm-yyyy'));
+insert into achizitioneaza (cod_beneficiar, cod_pachet, cod_sediu,data_achizitionare) values (150, 110, 120, to_date('03-06-2021', 'dd-mm-yyyy'));
+insert into achizitioneaza (cod_beneficiar, cod_pachet, cod_sediu,data_achizitionare) values (150, 120, 110, to_date('04-07-2018', 'dd-mm-yyyy'));
+insert into achizitioneaza (cod_beneficiar, cod_pachet, cod_sediu,data_achizitionare) values (150, 120, 140, to_date('05-07-2021', 'dd-mm-yyyy'));
+insert into achizitioneaza (cod_beneficiar, cod_pachet, cod_sediu,data_achizitionare) values (150, 130, 120, to_date('06-08-2019', 'dd-mm-yyyy'));
+insert into achizitioneaza (cod_beneficiar, cod_pachet, cod_sediu,data_achizitionare) values (150, 140, 110, to_date('07-08-2021', 'dd-mm-yyyy'));
+select * from achizitioneaza;
+
+
+/*
+drop table scenarist;
+drop table achizitioneaza;
+drop table alimenteaza;
+drop table sediu;
+drop table reclama;
+drop table administrator;
+drop table scenarist;
+drop table angajat;
+drop table premiu;
+drop table participa;
+drop table utilizator;
+drop table contine;
+drop table produs;
+drop table pachet_promotional;
+drop table beneficiar;
+drop table concurs;
+drop table furnizor;
+
+truncate table sediu;
+truncate table utilizator;
+drop sequence seq_furnizor; 
+drop sequence seq_concurs;
+drop sequence seq_beneficiar;
+drop sequence seq_produs;
+drop sequence seq_pachet;
+drop sequence seq_utilizator;
+drop sequence seq_premiu;
+drop sequence seq_angajat;
+drop sequence seq_sediu;
+drop sequence seq_reclama;
+*/
